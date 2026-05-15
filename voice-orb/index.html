@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Assistant UI with Video</title>
+    <!-- Google Fonts for Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Google Material Symbols for Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
+
+    <style>
+        :root {
+            --bg-color: #030303;
+            --text-color: #ffffff;
+            --icon-color: #8e8e8e;
+            --border-color: #1a1a1a;
+            --btn-bg: #080808;
+            
+            --orb-highlight: #eafab1;
+            --orb-mid-light: #7fcf64;
+            --orb-mid: #3ba24b;
+            --orb-dark: #124d20;
+            --orb-edge: #041708;
+            
+            --power-glow: #c6f050;
+            --avatar-bg: #4f646c;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Inter', sans-serif;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 500px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            background-color: var(--bg-color);
+            overflow: hidden;
+        }
+
+        /* --- Video Background Layer --- */
+        .video-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 1; /* Sits at the bottom of the positioned stack */
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s ease, visibility 0.5s;
+            background: linear-gradient(-45deg, #0d1b2a, #1b263b, #415a77, #000000);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .app-container.video-active .video-layer {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        #cameraFeed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            position: absolute;
+            inset: 0;
+        }
+
+        /* Gradient overlay to ensure text/buttons are visible against bright camera feeds */
+        .video-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 15%, rgba(0,0,0,0) 75%, rgba(0,0,0,0.8) 100%);
+            pointer-events: none;
+        }
+
+        .cam-status {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 14px;
+            text-align: center;
+            display: none;
+            pointer-events: none;
+        }
+
+        /* --- Header --- */
+        header {
+            position: relative; /* REQUIRED to stay above the absolute video layer */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 24px 20px;
+            z-index: 100; /* Stays firmly on top */
+        }
+
+        .menu-btn {
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(4px);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--icon-color);
+            cursor: pointer;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        .app-container.video-active .menu-btn {
+            color: #fff;
+            border-color: rgba(255,255,255,0.2);
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+        }
+
+        .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: var(--avatar-bg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 16px;
+            color: #ffffff;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        /* Close Video Button */
+        .close-video-btn {
+            display: none; /* Hidden by default */
+            background-color: rgba(20, 20, 20, 0.6);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            justify-content: center;
+            align-items: center;
+            color: #ffffff;
+            cursor: pointer;
+            transition: transform 0.1s, background-color 0.3s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+
+        .close-video-btn:active {
+            transform: scale(0.92);
+            background-color: rgba(60, 60, 60, 0.8);
+        }
+
+        .app-container.video-active .close-video-btn {
+            display: flex; /* Shown when video is active */
+        }
+
+        .app-container.video-active .avatar {
+            display: none; /* Hides avatar to make room for close icon */
+        }
+
+        /* --- Main Content (Orb & Background) --- */
+        main {
+            flex-grow: 1;
+            position: relative; /* REQUIRED for the z-index to work */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: -40px; 
+            z-index: 5; /* Under header and footer */
+        }
+
+        .grid-layer {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+            z-index: 2;
+            transition: opacity 0.5s ease;
+        }
+
+        .app-container.video-active .grid-layer {
+            opacity: 0;
+        }
+
+        .faint-line {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.03);
+        }
+        .faint-line.vertical { width: 1px; height: 100%; }
+        .faint-line.horizontal { height: 1px; width: 100%; }
+
+        .faint-circle {
+            position: absolute;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 50%;
+        }
+        .faint-circle.inner { width: 280px; height: 280px; }
+        .faint-circle.outer { width: 700px; height: 700px; }
+
+        .orb-container {
+            position: relative;
+            z-index: 5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+            transition: opacity 0.4s ease;
+        }
+
+        .orb {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: radial-gradient(
+                circle at 35% 30%, 
+                var(--orb-highlight) 0%, 
+                var(--orb-mid-light) 25%, 
+                var(--orb-mid) 50%, 
+                var(--orb-dark) 85%, 
+                var(--orb-edge) 100%
+            );
+            box-shadow: 
+                0 0 60px 10px rgba(59, 162, 75, 0.15),
+                inset -10px -10px 30px rgba(0, 0, 0, 0.5);
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* State when turned off */
+        .orb.inactive {
+            background: radial-gradient(
+                circle at 35% 30%, 
+                #444 0%, 
+                #333 30%, 
+                #222 60%, 
+                #111 85%, 
+                #050505 100%
+            );
+            box-shadow: 
+                0 0 20px rgba(0, 0, 0, 0.5),
+                inset -10px -10px 30px rgba(0, 0, 0, 0.8);
+            transform: scale(0.95);
+        }
+
+        /* Hide Orb completely when video is active */
+        .app-container.video-active .orb {
+            transform: scale(0);
+            opacity: 0;
+            visibility: hidden;
+        }
+        .app-container.video-active .orb-container {
+            pointer-events: none;
+        }
+
+        /* --- Footer Controls --- */
+        footer {
+            position: relative; /* REQUIRED to stay above the absolute video layer */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            padding-bottom: 50px;
+            z-index: 100; /* Stays firmly on top */
+        }
+
+        .control-btn {
+            background-color: rgba(8, 8, 8, 0.6);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border-color);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--icon-color);
+            cursor: pointer;
+            transition: transform 0.1s, background-color 0.3s, color 0.3s, border-color 0.3s;
+            position: relative;
+        }
+
+        .app-container.video-active .control-btn {
+            border-color: rgba(255, 255, 255, 0.2);
+            color: #ffffff; /* Brightens up icons when camera is on */
+        }
+
+        .control-btn:active {
+            transform: scale(0.92);
+        }
+
+        .control-btn.small { width: 50px; height: 50px; }
+        .control-btn.large { width: 76px; height: 76px; }
+
+        .control-btn.small.toggled {
+            color: #fff;
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+
+        /* --- Power Button & Audio Visualizer --- */
+        #powerIcon {
+            font-size: 32px;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            position: absolute;
+        }
+
+        .visualizer {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 4px;
+            height: 24px;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            position: absolute;
+        }
+
+        .visualizer .bar {
+            width: 4px;
+            height: 100%;
+            background-color: var(--power-glow);
+            border-radius: 2px;
+            box-shadow: 0 0 8px var(--power-glow);
+            animation: voice-bounce 0.8s infinite ease-in-out alternate;
+        }
+
+        .visualizer .bar:nth-child(1) { animation-delay: -0.4s; }
+        .visualizer .bar:nth-child(2) { animation-delay: -0.1s; }
+        .visualizer .bar:nth-child(3) { animation-delay: -0.6s; }
+        .visualizer .bar:nth-child(4) { animation-delay: 0s; }
+
+        @keyframes voice-bounce {
+            0% { transform: scaleY(0.2); }
+            100% { transform: scaleY(1); }
+        }
+
+        /* INACTIVE STATE (OFF) */
+        .power-btn.inactive #powerIcon {
+            opacity: 1;
+            transform: scale(1);
+            color: #555;
+        }
+        
+        .app-container.video-active .power-btn.inactive #powerIcon {
+            color: #ffffff; /* Make power button more visible on video layout */
+        }
+
+        .power-btn.inactive .visualizer {
+            opacity: 0;
+            transform: scale(0.5);
+            pointer-events: none;
+        }
+        
+        /* ACTIVE STATE (ON) */
+        .power-btn:not(.inactive) {
+            border-color: rgba(198, 240, 80, 0.4);
+        }
+        .power-btn:not(.inactive) #powerIcon {
+            opacity: 0;
+            transform: scale(0.5);
+            pointer-events: none;
+        }
+        .power-btn:not(.inactive) .visualizer {
+            opacity: 1;
+            transform: scale(1);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container" id="appContainer">
+        
+        <!-- Video Screen Layer -->
+        <div class="video-layer">
+            <video id="cameraFeed" autoplay muted playsinline></video>
+            <!-- Overlay ensures text/buttons are readable on top of white/bright camera feeds -->
+            <div class="video-overlay"></div>
+            <div class="cam-status" id="camStatus">Simulated Screen Feed<br>(Camera access missing/denied)</div>
+        </div>
+
+        <!-- Header Section -->
+        <header>
+            <button class="menu-btn" aria-label="Menu">
+                <span class="material-symbols-rounded">menu</span>
+            </button>
+            <div class="header-right">
+                <div class="avatar" id="avatar">a</div>
+                <!-- Close Video Button to go back to main menu -->
+                <button class="close-video-btn" id="closeVideoBtn" aria-label="Close Video">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main>
+            <div class="grid-layer">
+                <div class="faint-circle outer"></div>
+                <div class="faint-circle inner"></div>
+                <div class="faint-line vertical"></div>
+                <div class="faint-line horizontal"></div>
+            </div>
+
+            <!-- The Central Orb -->
+            <div class="orb-container">
+                <div class="orb inactive" id="mainOrb"></div>
+            </div>
+        </main>
+
+        <!-- Bottom Control Buttons -->
+        <footer>
+            <button class="control-btn small mic-btn" id="micBtn" aria-label="Toggle Microphone">
+                <span class="material-symbols-rounded" id="micIcon">mic</span>
+            </button>
+            
+            <!-- Power/Start Button with audio visualizer -->
+            <button class="control-btn large power-btn inactive" id="powerBtn" aria-label="Power/Start Toggle">
+                <span class="material-symbols-rounded" id="powerIcon">power_settings_new</span>
+                <div class="visualizer" id="visualizer">
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                </div>
+            </button>
+            
+            <!-- Video Button with standard camera icon -->
+            <button class="control-btn small video-btn" id="videoBtn" aria-label="Toggle Video">
+                <span class="material-symbols-rounded" id="videoIcon">videocam</span>
+            </button>
+        </footer>
+    </div>
+
+    <!-- Interactivity Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const appContainer = document.getElementById('appContainer');
+            const orb = document.getElementById('mainOrb');
+            const powerBtn = document.getElementById('powerBtn');
+            const micBtn = document.getElementById('micBtn');
+            const micIcon = document.getElementById('micIcon');
+            const videoBtn = document.getElementById('videoBtn');
+            const closeVideoBtn = document.getElementById('closeVideoBtn');
+            
+            const cameraFeed = document.getElementById('cameraFeed');
+            const camStatus = document.getElementById('camStatus');
+            let videoStream = null;
+
+            // Power button toggles the orb state and starts the visualizer
+            powerBtn.addEventListener('click', () => {
+                orb.classList.toggle('inactive');
+                powerBtn.classList.toggle('inactive');
+            });
+
+            // Mic button toggle
+            let micActive = true;
+            micBtn.addEventListener('click', () => {
+                micActive = !micActive;
+                micBtn.classList.toggle('toggled');
+                micIcon.textContent = micActive ? 'mic' : 'mic_off';
+            });
+
+            // Reusable function to completely close video mode
+            function closeVideoMode() {
+                appContainer.classList.remove('video-active');
+                videoBtn.classList.remove('toggled');
+                
+                // Stop camera stream tracks
+                if (videoStream) {
+                    videoStream.getTracks().forEach(track => track.stop());
+                    cameraFeed.srcObject = null;
+                    videoStream = null;
+                }
+                camStatus.style.display = 'none';
+            }
+
+            // Video button toggle opens camera
+            videoBtn.addEventListener('click', async () => {
+                const isVideoActive = appContainer.classList.contains('video-active');
+
+                if (!isVideoActive) {
+                    // Turn ON Video Screen
+                    appContainer.classList.add('video-active');
+                    videoBtn.classList.add('toggled');
+                    
+                    try {
+                        // Request user camera
+                        videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+                        cameraFeed.srcObject = videoStream;
+                        camStatus.style.display = 'none';
+                    } catch (err) {
+                        console.warn("Camera access denied or unavailable. Using simulated background.", err);
+                        camStatus.style.display = 'block';
+                    }
+                } else {
+                    // Turn OFF Video Screen if clicked again
+                    closeVideoMode();
+                }
+            });
+
+            // Close button top right explicitly closes video and goes back to main menu
+            closeVideoBtn.addEventListener('click', closeVideoMode);
+        });
+    </script>
+</body>
+</html>
